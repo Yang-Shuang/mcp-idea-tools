@@ -15,6 +15,7 @@ dependencies {
 
         bundledPlugin("com.intellij.java")
         bundledPlugin("com.intellij.modules.json")
+        bundledPlugin("org.jetbrains.plugins.gradle")
     }
 
 //    implementation("org.freemarker:freemarker:2.3.32")

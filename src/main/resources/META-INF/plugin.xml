@@ -5,16 +5,15 @@
 
     <!-- Public plugin name should be written in Title Case.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
-    <name>Mcp-idea-tools</name>
+    <name>Idea Mcp Serve</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor url="https://www.yourcompany.com">YourCompany</vendor>
+    <vendor url="https://github.com/Yang-Shuang/mcp-idea-tools">mcp-idea-tools</vendor>
 
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        Enter short description for your plugin here.<br>
-        <em>most HTML tags may be used</em>
+        一个 IntelliJ IDEA / Android Studio 插件，提供 mcp serve , agent 可以使用 Mcp Streamable HTTP 使用这个工具，工具内部提供一些常见功能，如获取项目基本信息，执行gradle task等操作
     ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -22,8 +21,21 @@
 
     <depends>com.intellij.java</depends>
     <depends>com.intellij.modules.json</depends>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.gradle</depends>
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.ysh.studiotool.config.McpToolConfig"/>
+        <applicationConfigurable instance="com.ysh.studiotool.config.McpToolSettingsPanel"
+                                 groupId="tools"
+                                 id="mcp.tool.executor.settings"
+                                 displayName="MCP Tool Executor"/>
+
+        <notificationGroup id="MCP-Executor" displayType="BALLOON"/>
     </extensions>
+    <applicationListeners>
+        <listener class="com.ysh.studiotool.McpToolPlugin"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+    </applicationListeners>
 </idea-plugin>
