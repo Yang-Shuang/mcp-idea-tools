@@ -24,6 +24,10 @@ dependencies {
 }
 
 intellijPlatform {
+    // 关闭 searchable options 生成（构建提速）；必须用扩展属性关闭，
+    // 若只 disable buildSearchableOptions 任务，下游 prepareJarSearchableOptions 的 onlyIf 仍读到 true 而报输入目录缺失
+    buildSearchableOptions = false
+
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "253.28294"
@@ -47,8 +51,4 @@ tasks {
         sourceCompatibility = "21"
         targetCompatibility = "21"
     }
-}
-
-tasks.buildSearchableOptions {
-    enabled = false
 }

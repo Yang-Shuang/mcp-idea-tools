@@ -33,6 +33,7 @@ public final class StudioMcpTools {
     private static final String DESC_EXECUTE_TASKS = "通过 IntelliJ IDEA / Android Studio 使用当前项目配置的 Gradle 执行指定 Gradle task。Args: tasks: 要执行的任务名，多个任务用英文逗号分隔，如 \"clean,build\"。任务名必须取自 studio_get_state 返回的 tasks 列表。";
     private static final String DESC_GET_ERRORS = "使用 IntelliJ IDEA / Android Studio 的分析引擎进行快速错误检查（无需编译，秒级返回），返回语法错误、引用解析失败、类型不匹配等问题所在的行号、列号、该行源码、严重级别（ERROR / WARNING / WEAK_WARNING）与描述。结果为 IDE 静态分析结论，个别场景可能与实际编译结果有偏差，最终以 studio_build / studio_execute_tasks 为准。Args: files: 可选，文件路径数组（绝对路径，或相对于项目根目录的路径）。传入时对这些文件做实时分析，通常传入本次修改过和新建的文件，以及受本次改动影响的关联文件（如被修改接口的实现类、调用方等）；不传时返回当前 IDE 已打开编辑器文件中已检测出的错误、警告与弱警告。";
     private static final String DESC_FIND_USAGES = "在 IntelliJ IDEA / Android Studio 中查找符号的所有引用（Find Usages）。Args: file: 符号所在文件路径（绝对路径，或相对于项目根目录的路径）；line: 行号（1 开始）；column: 列号（1 开始）。定位规则：按光标位置解析符号，支持声明处与引用处（引用处自动解析到目标符号）。方法符号自动包含所有同名重载及基类/子类覆写方法的引用。定位在 R.string.xxx 或 XML 资源定义（如 <string name=\"title\">）时，可同时返回 Java 中的 R 资源引用与 XML 中的 @string/title 引用（IDE 装有 Android 插件时生效，如在 Android Studio 中运行）。返回：state、symbol（实际解析到的符号，用于确认定位）、totalCount（真实总数）、truncated、usages[]（每条含 file/line/column/lineText/kind，kind ∈ call/read/write/import/text）。结果上限 200 条，超出时 truncated=true，totalCount 仍为真实数量。";
+    private static final String DESC_GOTO_DEFINITION = "在 IntelliJ IDEA / Android Studio 中查找符号的定义位置（Go to Definition，通用符号：变量、常量/字段、类、接口、方法、参数等）。Args: file: 符号所在文件路径（绝对路径，或相对于项目根目录的路径）；line: 行号（1 开始）；column: 列号（1 开始）。定位规则：按光标位置解析符号，支持声明处与引用处（引用处自动解析到目标符号）。解析出多个定义候选时全部返回（如重载、多实现），definitions[0] 为首选定义（primary=true），其余候选 primary=false。仅返回定义坐标数据，不在 IDE 中打开/跳转。返回：state、symbol（实际解析到的符号，用于确认定位）、totalCount、definitions[]（每条含 file/line/column/lineText/primary）。";
 
     private StudioMcpTools() {
     }
@@ -46,7 +47,8 @@ public final class StudioMcpTools {
                 tool("studio_select_config", DESC_SELECT_CONFIG, selectConfigSchema(), StudioMcpTools::selectConfig),
                 tool("studio_execute_tasks", DESC_EXECUTE_TASKS, executeTasksSchema(), StudioMcpTools::executeTasks),
                 tool("studio_get_errors", DESC_GET_ERRORS, getErrorsSchema(), StudioMcpTools::getErrors),
-                tool("studio_find_usages", DESC_FIND_USAGES, findUsagesSchema(), StudioMcpTools::findUsages));
+                tool("studio_find_usages", DESC_FIND_USAGES, findUsagesSchema(), StudioMcpTools::findUsages),
+                tool("studio_goto_definition", DESC_GOTO_DEFINITION, gotoDefinitionSchema(), StudioMcpTools::gotoDefinition));
     }
 
     private static McpServerFeatures.SyncToolSpecification tool(String name, String description,
@@ -161,6 +163,34 @@ public final class StudioMcpTools {
         } catch (Exception e) {
             NotificationManager.logInfo("Failed to find usages, stack:\n" + ExceptionUtil.getThrowableText(e));
             return errorResult("Failed to find usages: " + e.getMessage());
+        }
+    }
+
+    private static McpSchema.CallToolResult gotoDefinition(McpSyncServerExchange exchange,
+                                                           McpSchema.CallToolRequest request) {
+        String file = stringArgument(request, "file");
+        Integer line = numberArgument(request, "line");
+        Integer column = numberArgument(request, "column");
+        if (file == null || file.isBlank()) {
+            return errorResult("file must not be empty");
+        }
+        if (line == null || line < 1 || column == null || column < 1) {
+            return errorResult("line and column must be positive integers (1-based)");
+        }
+        try {
+            Map<String, Object> result = GotoDefinitionScanner.gotoDefinition(file, line, column);
+            String json = JSON.writeValueAsString(result);
+            NotificationManager.logInfo("Response Json : " + json);
+            boolean failed = BaseResult.FAILED.equals(result.get("state"));
+            return McpSchema.CallToolResult.builder()
+                    .content(List.of(new McpSchema.TextContent(json)))
+                    .isError(failed)
+                    .build();
+        } catch (ProcessCanceledException e) {
+            throw e;
+        } catch (Exception e) {
+            NotificationManager.logInfo("Failed to goto definition, stack:\n" + ExceptionUtil.getThrowableText(e));
+            return errorResult("Failed to goto definition: " + e.getMessage());
         }
     }
 
@@ -286,6 +316,16 @@ public final class StudioMcpTools {
     }
 
     private static Map<String, Object> findUsagesSchema() {
+        return Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "file", Map.of("title", "File", "type", "string"),
+                        "line", Map.of("title", "Line", "type", "number"),
+                        "column", Map.of("title", "Column", "type", "number")),
+                "required", List.of("file", "line", "column"));
+    }
+
+    private static Map<String, Object> gotoDefinitionSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(

@@ -18,9 +18,11 @@ IntelliJ IDEA / Android Studio 插件，内置 MCP Server（Streamable HTTP）�
 src/main/java/com/ysh/studiotool/
 ├── mcp/                  # MCP Server 核心
 │   ├── McpServerManager  # Jetty + SDK 装配、启停、生命周期
-│   ├── StudioMcpTools    # 8 个工具的定义与 handler（统一互斥锁/序列化/错误处理）
+│   ├── StudioMcpTools    # 9 个工具的定义与 handler（统一互斥锁/序列化/错误处理）
 │   ├── ErrorScanner      # studio_get_errors 实现（daemon 高亮读取）
 │   ├── FindUsagesScanner # studio_find_usages 实现（ReferencesSearch + 重载/继承扩展）
+│   ├── GotoDefinitionScanner # studio_goto_definition 实现（multiResolve 全候选定义）
+│   ├── SymbolLocator     # 符号定位/坐标换算共享工具（Find/Goto 两 Scanner 共用）
 │   ├── ScannerUtil       # getProject/findVirtualFile 共享工具
 │   └── McpServerBootstrap# main() 冒烟入口（IDE 外启动服务）
 ├── executor/             # 工具内部实现
@@ -33,11 +35,13 @@ src/main/java/com/ysh/studiotool/
 └── McpToolPlugin.java    # 入口：AppLifecycleListener 启动/停止服务
 ```
 
-## 工具清单（8 个）
+## 工具清单（9 个）
 
-`studio_run_default`、`studio_build`、`studio_sync`、`studio_get_state`、`studio_select_config`、`studio_execute_tasks`、`studio_get_errors`、`studio_find_usages`
+`studio_run_default`、`studio_build`、`studio_sync`、`studio_get_state`、`studio_select_config`、`studio_execute_tasks`、`studio_get_errors`、`studio_find_usages`、`studio_goto_definition`
 
 工具描述为最终 Agent 可见的 prompt，修改时注意准确性。
+
+不做 `studio_rename_symbol`（评估结论 2026-10-16）：精准改名场景已被 find_usages（全引用 + 精确坐标）+ Agent 直接编辑 + get_errors/build 验证覆盖；且它是唯一需要 IDE 写动作的工具（write-action/EDT/VFS 刷新），复杂度与风险不成比例，YAGNI。
 
 ## API 签名查询（javap）
 
@@ -64,7 +68,3 @@ src/main/java/com/ysh/studiotool/
 - **IDEA daemon 只分析选中的编辑器**：分析未激活文件需临时 openFile 激活 + restart + 轮询（见 ErrorScanner）。
 - **全局操作互斥**：写操作（run/build/sync 等）共享 `OPERATION_RUNNING` 锁；get_errors 只读，不参与。
 - 工具 handler 返回 `isError` 跟随 `BaseResult.isSuccess()`；异常统一转为 isError 结果。
-
-## 未完成
-- studio_goto_definition：跳转定义
-- studio_rename_symbol：安全重命名（含 XML/资源引用联动），你当时说“有点用”

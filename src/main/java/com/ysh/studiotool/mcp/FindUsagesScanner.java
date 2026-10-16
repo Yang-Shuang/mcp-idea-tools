@@ -13,7 +13,6 @@ import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiExpression;
-import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiImportStatementBase;
 import com.intellij.psi.PsiLambdaExpression;
@@ -21,7 +20,6 @@ import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiAnonymousClass;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiMethodCallExpression;
-import com.intellij.psi.PsiNamedElement;
 import com.intellij.psi.PsiPackage;
 import com.intellij.psi.PsiReference;
 import com.intellij.psi.PsiVariable;
@@ -82,14 +80,14 @@ public final class FindUsagesScanner {
             return failed("No document for file: " + path);
         }
 
-        int offset = TargetElementUtil.adjustOffset(psiFile, document, toOffset(document, line, column));
-        PsiElement target = resolveTarget(psiFile, offset);
+        int offset = TargetElementUtil.adjustOffset(psiFile, document, SymbolLocator.toOffset(document, line, column));
+        PsiElement target = SymbolLocator.resolveTarget(psiFile, offset);
         if (target == null) {
             return failed("No symbol found at line " + line + ", column " + column);
         }
 
         result.put("state", BaseResult.SUCCESS);
-        result.put("symbol", symbolOf(target));
+        result.put("symbol", SymbolLocator.symbolOf(target));
 
         Collection<PsiElement> elements = expandElements(target);
         Set<String> seen = new LinkedHashSet<>();
@@ -121,24 +119,6 @@ public final class FindUsagesScanner {
                     + " may not be fully supported for find usages");
         }
         return result;
-    }
-
-    /**
-     * 引用处：findReferenceAt 解析目标；声明处：无引用时取命名元素。
-     */
-    private static PsiElement resolveTarget(PsiFile psiFile, int offset) {
-        PsiReference reference = psiFile.findReferenceAt(offset);
-        if (reference != null) {
-            PsiElement resolved = reference.resolve();
-            if (resolved != null) {
-                return resolved;
-            }
-        }
-        PsiElement leaf = psiFile.findElementAt(offset);
-        if (leaf != null) {
-            return TargetElementUtil.getNamedElement(leaf);
-        }
-        return null;
     }
 
     /**
@@ -227,37 +207,6 @@ public final class FindUsagesScanner {
     private static boolean isSupportedType(PsiElement target) {
         return target instanceof PsiMethod || target instanceof PsiVariable || target instanceof PsiClass
                 || target instanceof PsiPackage;
-    }
-
-    private static int toOffset(Document document, int line, int column) {
-        int lineIndex = Math.min(Math.max(line, 1), document.getLineCount()) - 1;
-        int start = document.getLineStartOffset(lineIndex);
-        int end = document.getLineEndOffset(lineIndex);
-        return Math.min(start + Math.max(column, 1) - 1, end);
-    }
-
-    private static String symbolOf(PsiElement target) {
-        if (target instanceof PsiMethod method) {
-            return qualifiedName(method.getContainingClass()) + "#" + method.getName();
-        }
-        if (target instanceof PsiField field) {
-            return qualifiedName(field.getContainingClass()) + "." + field.getName();
-        }
-        if (target instanceof PsiClass aClass) {
-            return qualifiedName(aClass);
-        }
-        if (target instanceof PsiNamedElement named && named.getName() != null) {
-            return named.getName();
-        }
-        return target.toString();
-    }
-
-    private static String qualifiedName(PsiClass aClass) {
-        if (aClass == null) {
-            return "";
-        }
-        String qualified = aClass.getQualifiedName();
-        return qualified != null ? qualified : String.valueOf(aClass.getName());
     }
 
     private static Map<String, Object> failed(String error) {
