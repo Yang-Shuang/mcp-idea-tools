@@ -27,6 +27,7 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="com.ysh.studiotool.config.McpToolConfig"/>
+        <applicationService serviceImplementation="com.ysh.studiotool.mcp.McpServerManager"/>
         <applicationConfigurable instance="com.ysh.studiotool.config.McpToolSettingsPanel"
                                  groupId="tools"
                                  id="mcp.tool.executor.settings"

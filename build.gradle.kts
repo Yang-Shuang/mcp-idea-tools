@@ -18,7 +18,9 @@ dependencies {
         bundledPlugin("org.jetbrains.plugins.gradle")
     }
 
-//    implementation("org.freemarker:freemarker:2.3.32")
+    implementation("io.modelcontextprotocol.sdk:mcp:2.0.1")
+    implementation("org.eclipse.jetty:jetty-server:12.0.40")
+    implementation("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.40")
 }
 
 intellijPlatform {

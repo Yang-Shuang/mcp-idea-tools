@@ -3,8 +3,8 @@ package com.ysh.studiotool.config;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SearchableConfigurable;
-import com.mcp.tool.executor.notification.NotificationManager;
-import com.mcp.tool.executor.server.HttpServerManager;
+import com.ysh.studiotool.mcp.McpServerManager;
+import com.ysh.studiotool.notification.NotificationManager;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.Nullable;
 
@@ -185,18 +185,22 @@ public class McpToolSettingsPanel implements SearchableConfigurable {
     }
 
     private void handleSettingsChange(ToolConfig config) {
-        HttpServerManager manager = ApplicationManager.getApplication().getService(HttpServerManager.class);
-
-        if (config.enabled && !manager.isServiceEnabled()) {
-            manager.start(config.port, config.timeoutMs);
-        } else if (!config.enabled && manager.isServiceEnabled()) {
-            manager.stop();
-        } else if (manager.isServiceEnabled() && !manager.getPort().equals(String.valueOf(config.port))) {
-            manager.restart(config.port, config.timeoutMs);
-        } else if (manager.isServiceEnabled()) {
-            manager.updateTimeout(config.timeoutMs);
-        } else {
-            NotificationManager.info("Configuration saved");
+        McpServerManager manager = ApplicationManager.getApplication().getService(McpServerManager.class);
+        try {
+            if (config.enabled && !manager.isRunning()) {
+                manager.start(config.port);
+                NotificationManager.info("MCP server started on port " + config.port);
+            } else if (!config.enabled && manager.isRunning()) {
+                manager.stop();
+                NotificationManager.info("MCP server stopped");
+            } else if (manager.isRunning() && manager.getPort() != config.port) {
+                manager.start(config.port);
+                NotificationManager.info("MCP server restarted on port " + config.port);
+            } else {
+                NotificationManager.info("Configuration saved");
+            }
+        } catch (Exception e) {
+            NotificationManager.error("Failed to apply MCP server settings: " + e.getMessage());
         }
     }
 

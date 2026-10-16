@@ -2,10 +2,10 @@ package com.ysh.studiotool;
 
 import com.intellij.ide.AppLifecycleListener;
 import com.intellij.openapi.application.ApplicationManager;
-import com.mcp.tool.executor.config.McpToolConfig;
-import com.mcp.tool.executor.config.ToolConfig;
-import com.mcp.tool.executor.notification.NotificationManager;
-import com.mcp.tool.executor.server.HttpServerManager;
+import com.ysh.studiotool.config.McpToolConfig;
+import com.ysh.studiotool.config.ToolConfig;
+import com.ysh.studiotool.mcp.McpServerManager;
+import com.ysh.studiotool.notification.NotificationManager;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -22,9 +22,14 @@ public class McpToolPlugin implements AppLifecycleListener {
             }
             NotificationManager.logInfo("McpToolPlugin config.enabled : " + config.enabled);
             if (config.enabled) {
-                HttpServerManager manager = ApplicationManager.getApplication().getService(HttpServerManager.class);
-                if (!manager.isServiceEnabled()) {
-                    manager.start(config.port, config.timeoutMs);
+                McpServerManager manager = ApplicationManager.getApplication().getService(McpServerManager.class);
+                if (!manager.isRunning()) {
+                    try {
+                        manager.start(config.port);
+                        NotificationManager.info("MCP server started on port " + config.port);
+                    } catch (Exception e) {
+                        NotificationManager.error("Failed to start MCP server on port " + config.port + ": " + e.getMessage());
+                    }
                 }
             }
         } catch (Exception e) {
@@ -35,8 +40,8 @@ public class McpToolPlugin implements AppLifecycleListener {
     @Override
     public void appWillBeClosed(boolean isRestart) {
         try {
-            HttpServerManager manager = ApplicationManager.getApplication().getService(HttpServerManager.class);
-            if (manager != null && manager.isServiceEnabled()) {
+            McpServerManager manager = ApplicationManager.getApplication().getService(McpServerManager.class);
+            if (manager != null && manager.isRunning()) {
                 manager.stop();
             }
         } catch (Exception e) {

@@ -2,7 +2,7 @@ package com.ysh.studiotool.server;
 
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
-import com.mcp.tool.executor.notification.NotificationManager;
+import com.ysh.studiotool.notification.NotificationManager;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -37,45 +37,45 @@ public final class HttpServerManager implements Disposable {
     }
 
     public void start(int port, long timeoutMs) {
-        stop();
-        killProcessOccupyingPort(port);
-        try {
-            this.currentPort = String.valueOf(port);
-            this.currentTimeoutMs = timeoutMs;
-
-            handler = new McpHttpHandler(port, this);
-            handler.start();
-
-            serviceEnabled = true;
-            NotificationManager.info("Server started on port " + port);
-
-        } catch (java.io.IOException e) {
-            serviceEnabled = false;
-            currentPort = null;
-            NotificationManager.error("Failed to bind HTTP server: port " + port + " in use");
-            NotificationManager.logError(e.getMessage());
-        } catch (Exception e) {
-            serviceEnabled = false;
-            currentPort = null;
-            NotificationManager.error("Failed to start server: " + e.getMessage());
-        }
+//        stop();
+//        killProcessOccupyingPort(port);
+//        try {
+//            this.currentPort = String.valueOf(port);
+//            this.currentTimeoutMs = timeoutMs;
+//
+//            handler = new McpHttpHandler(port, this);
+//            handler.start();
+//
+//            serviceEnabled = true;
+//            NotificationManager.info("Server started on port " + port);
+//
+//        } catch (java.io.IOException e) {
+//            serviceEnabled = false;
+//            currentPort = null;
+//            NotificationManager.error("Failed to bind HTTP server: port " + port + " in use");
+//            NotificationManager.logError(e.getMessage());
+//        } catch (Exception e) {
+//            serviceEnabled = false;
+//            currentPort = null;
+//            NotificationManager.error("Failed to start server: " + e.getMessage());
+//        }
     }
 
     public void stop() {
-        if (this.handler != null) {
-            try {
-                this.handler.stop();
-            } catch (Exception e) {
-                NotificationManager.error("Error stopping server: " + e.getMessage());
-            } finally {
-                this.handler = null;
-                serviceEnabled = false;
-                currentPort = null;
-            }
-            NotificationManager.info("Server stopped");
-        } else {
-            serviceEnabled = false;
-        }
+//        if (this.handler != null) {
+//            try {
+//                this.handler.stop();
+//            } catch (Exception e) {
+//                NotificationManager.error("Error stopping server: " + e.getMessage());
+//            } finally {
+//                this.handler = null;
+//                serviceEnabled = false;
+//                currentPort = null;
+//            }
+//            NotificationManager.info("Server stopped");
+//        } else {
+//            serviceEnabled = false;
+//        }
     }
 
     public void restart(int port, long timeoutMs) {

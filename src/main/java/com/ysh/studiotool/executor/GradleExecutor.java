@@ -25,8 +25,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Key;
 import com.intellij.util.messages.MessageBusConnection;
-import com.mcp.tool.executor.notification.NotificationManager;
-import org.apache.http.util.TextUtils;
+import com.ysh.studiotool.notification.NotificationManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.plugins.gradle.service.execution.GradleExternalTaskConfigurationType;
@@ -66,7 +65,7 @@ public class GradleExecutor {
         GradleInfoResult result = new GradleInfoResult(BaseResult.SUCCESS, null, null);
 
         String path = project.getBasePath();
-        if (TextUtils.isEmpty(path)) {
+        if (path == null || path.isEmpty()) {
             return new GradleInfoResult(BaseResult.FAILED, null, "project path is null");
         }
         // 同时查找正斜杠和反斜杠，取最后出现的那一个

@@ -7,8 +7,8 @@ import com.intellij.notification.NotificationType;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
-import com.mcp.tool.executor.config.McpToolConfig;
-import com.mcp.tool.executor.config.ToolConfig;
+import com.ysh.studiotool.config.McpToolConfig;
+import com.ysh.studiotool.config.ToolConfig;
 
 public final class NotificationManager {
 

@@ -22,7 +22,7 @@ import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.Key;
 import com.intellij.pom.Navigatable;
 import com.intellij.util.messages.MessageBusConnection;
-import com.mcp.tool.executor.notification.NotificationManager;
+import com.ysh.studiotool.notification.NotificationManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.plugins.gradle.settings.*;
 
