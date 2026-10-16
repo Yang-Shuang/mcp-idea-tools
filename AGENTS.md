@@ -18,8 +18,10 @@ IntelliJ IDEA / Android Studio 插件，内置 MCP Server（Streamable HTTP）�
 src/main/java/com/ysh/studiotool/
 ├── mcp/                  # MCP Server 核心
 │   ├── McpServerManager  # Jetty + SDK 装配、启停、生命周期
-│   ├── StudioMcpTools    # 7 个工具的定义与 handler（统一互斥锁/序列化/错误处理）
+│   ├── StudioMcpTools    # 8 个工具的定义与 handler（统一互斥锁/序列化/错误处理）
 │   ├── ErrorScanner      # studio_get_errors 实现（daemon 高亮读取）
+│   ├── FindUsagesScanner # studio_find_usages 实现（ReferencesSearch + 重载/继承扩展）
+│   ├── ScannerUtil       # getProject/findVirtualFile 共享工具
 │   └── McpServerBootstrap# main() 冒烟入口（IDE 外启动服务）
 ├── executor/             # 工具内部实现
 │   ├── McpToolExecutor   # run/build/selectConfig
@@ -31,11 +33,29 @@ src/main/java/com/ysh/studiotool/
 └── McpToolPlugin.java    # 入口：AppLifecycleListener 启动/停止服务
 ```
 
-## 工具清单（7 个）
+## 工具清单（8 个）
 
-`studio_run_default`、`studio_build`、`studio_sync`、`studio_get_state`、`studio_select_config`、`studio_execute_tasks`、`studio_get_errors`
+`studio_run_default`、`studio_build`、`studio_sync`、`studio_get_state`、`studio_select_config`、`studio_execute_tasks`、`studio_get_errors`、`studio_find_usages`
 
 工具描述为最终 Agent 可见的 prompt，修改时注意准确性。
+
+## API 签名查询（javap）
+
+验证 IntelliJ Platform 2025.3 API 是否存在/签名时，用 javap 对**编译依赖的 SDK**（Gradle 缓存里解压的发行版，build.txt = IU-253.28294.334，与 `intellijIdea("2025.3")` 完全一致）查询：
+
+- javap：`E:/Java/jdk-21.0.8/bin/javap.exe`（必须 JDK 21+，JDK 17 读不了 253 的 class 版本）
+- SDK 根目录（transform 哈希可能变化，失效时重新查找）：`E:/Gradle/Home/caches/8.14/transforms/f3b7f9948ff0990f354e88f1a0f7e1a2/transformed/idea-2025.3-win`
+- 找不到时用：`find E:/Gradle/Home/caches -maxdepth 8 -type d -name "idea-2025.3-win"`
+- 2025.3 把类拆散在多个 jar，一个 jar 找不到按下列顺序补齐 classpath（Windows 分隔符是 `;`）：
+  - `lib/app.jar` + `lib/util-8.jar`（核心 PSI 如 `PsiElement`/`DocumentWindow` 在 util-8，不在 app.jar）
+  - `plugins/java/lib/java-impl-frontend.jar`（`PsiClass`/`PsiUtil`/`OverridingMethodsSearch` 等 Java PSI 在这）
+- 示例：`javap -cp "<SDK>/lib/util-8.jar;<SDK>/lib/app.jar;<SDK>/plugins/java/lib/java-impl-frontend.jar" com.intellij.psi.PsiClass`
+- 备用：本机安装的 `E:/Application/IntelliJ IDEA 2025.3.6`（更新补丁版，结构相同；查稳定 API 够用，但非精确编译版本）
+
+## 工作约定
+
+- **禁止自动提交**：不要执行任何 git commit / push 操作，该提交时用户自己提交。
+- 设计文档放在 `docs/superpowers/specs/`，同样不提交。
 
 ## 关键实现要点（防坑）
 
@@ -46,6 +66,5 @@ src/main/java/com/ysh/studiotool/
 - 工具 handler 返回 `isError` 跟随 `BaseResult.isSuccess()`；异常统一转为 isError 结果。
 
 ## 未完成
-- studio_find_usages：查引用，理解重载/继承/R 资源引用
 - studio_goto_definition：跳转定义
 - studio_rename_symbol：安全重命名（含 XML/资源引用联动），你当时说“有点用”

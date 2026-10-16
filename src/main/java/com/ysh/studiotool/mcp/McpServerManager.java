@@ -1,5 +1,6 @@
 package com.ysh.studiotool.mcp;
 
+import com.ysh.studiotool.notification.NotificationManager;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
@@ -7,21 +8,30 @@ import io.modelcontextprotocol.json.schema.jackson3.DefaultJsonSchemaValidator;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
+import org.eclipse.jetty.ee10.servlet.FilterHolder;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.EnumSet;
 
 public final class McpServerManager {
 
     public static final String MCP_ENDPOINT = "/mcp";
     public static final String BIND_HOST = "127.0.0.1";
 
-    private static final Logger log = LoggerFactory.getLogger(McpServerManager.class);
     private static final String SERVER_NAME = "idea-mcp-tools";
     private static final String SERVER_VERSION = "1.0.0";
 
@@ -80,11 +90,29 @@ public final class McpServerManager {
             ServletHolder holder = new ServletHolder("mcp", transportProvider);
             holder.setAsyncSupported(true);
             context.addServlet(holder, MCP_ENDPOINT);
+
+            // 记录完整 JSON-RPC 请求报文（含 jsonrpc/id/method/params），便于排查 Agent 调用；
+            // 请求体缓存后交给下游，不影响 SDK 正常解析
+            FilterHolder rawLogFilter = new FilterHolder((request, response, chain) -> {
+                if (request instanceof HttpServletRequest httpRequest) {
+                    byte[] body = httpRequest.getInputStream().readAllBytes();
+                    if (body.length > 0) {
+                        NotificationManager.logInfo("MCP raw request: " + new String(body, StandardCharsets.UTF_8));
+                    }
+                    chain.doFilter(new CachedBodyRequest(httpRequest, body), response);
+                    return;
+                }
+                chain.doFilter(request, response);
+            });
+            // Streamable 传输依赖异步，Filter 链必须声明支持 async，否则 Jetty 会拒绝
+            rawLogFilter.setAsyncSupported(true);
+            context.addFilter(rawLogFilter, MCP_ENDPOINT, EnumSet.of(DispatcherType.REQUEST));
+
             jettyServer.setHandler(context);
 
             jettyServer.start();
             boundPort = port;
-            log.info("MCP server started at {}", getEndpoint());
+            NotificationManager.logInfo("MCP server started at " + getEndpoint());
         } catch (Exception e) {
             cleanup();
             throw e;
@@ -101,7 +129,7 @@ public final class McpServerManager {
         Thread.currentThread().setContextClassLoader(McpServerManager.class.getClassLoader());
         try {
             cleanup();
-            log.info("MCP server stopped");
+            NotificationManager.logInfo("MCP server stopped");
         } finally {
             Thread.currentThread().setContextClassLoader(previousTcl);
         }
@@ -131,20 +159,63 @@ public final class McpServerManager {
             try {
                 server.stop();
             } catch (Exception e) {
-                log.warn("Error stopping Jetty: {}", e.getMessage());
+                NotificationManager.logInfo("Error stopping Jetty: " + e.getMessage());
             }
             try {
                 server.destroy();
             } catch (Exception e) {
-                log.debug("Error destroying Jetty: {}", e.getMessage());
+                NotificationManager.logInfo("Error destroying Jetty: " + e.getMessage());
             }
         }
         if (syncServer != null) {
             try {
                 syncServer.close();
             } catch (Exception e) {
-                log.warn("Error closing MCP server: {}", e.getMessage());
+                NotificationManager.logInfo("Error closing MCP server: " + e.getMessage());
             }
+        }
+    }
+
+    /**
+     * 缓存请求体的包装：Filter 中已消费原始流，下游通过包装类重复读取缓存的字节
+     */
+    private static final class CachedBodyRequest extends HttpServletRequestWrapper {
+
+        private final byte[] body;
+
+        private CachedBodyRequest(HttpServletRequest request, byte[] body) {
+            super(request);
+            this.body = body;
+        }
+
+        @Override
+        public ServletInputStream getInputStream() {
+            ByteArrayInputStream buffer = new ByteArrayInputStream(body);
+            return new ServletInputStream() {
+                @Override
+                public boolean isFinished() {
+                    return buffer.available() == 0;
+                }
+
+                @Override
+                public boolean isReady() {
+                    return true;
+                }
+
+                @Override
+                public void setReadListener(ReadListener listener) {
+                }
+
+                @Override
+                public int read() {
+                    return buffer.read();
+                }
+            };
+        }
+
+        @Override
+        public BufferedReader getReader() {
+            return new BufferedReader(new InputStreamReader(getInputStream(), StandardCharsets.UTF_8));
         }
     }
 }

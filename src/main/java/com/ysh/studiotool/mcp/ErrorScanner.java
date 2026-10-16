@@ -15,14 +15,12 @@ import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.ysh.studiotool.executor.BaseResult;
 import com.ysh.studiotool.notification.NotificationManager;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,7 +53,7 @@ public final class ErrorScanner {
         int totalWeakWarnings = 0;
 
         for (String path : paths) {
-            VirtualFile vFile = findVirtualFile(project, path);
+            VirtualFile vFile = ScannerUtil.findVirtualFile(project, path);
             analyzedFiles.add(vFile);
             Map<String, Object> fileResult = analyzeFile(project, vFile, path, true, true);
             fileResults.add(fileResult);
@@ -392,17 +390,6 @@ public final class ErrorScanner {
             fileResult.put("problems", problems);
             return true;
         });
-    }
-
-    private static VirtualFile findVirtualFile(Project project, String path) {
-        File ioFile = new File(path);
-        if (!ioFile.isAbsolute()) {
-            String basePath = project.getBasePath();
-            if (basePath != null) {
-                ioFile = new File(basePath, path);
-            }
-        }
-        return LocalFileSystem.getInstance().refreshAndFindFileByIoFile(ioFile);
     }
 
     private static String messageOf(HighlightInfo info) {
