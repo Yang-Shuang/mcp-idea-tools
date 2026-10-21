@@ -7,6 +7,7 @@ import java.util.TreeSet;
 public class GradleInfoResult extends BaseResult {
 
     private String projectName;
+    private String projectInfo;
     private String distributionType;
     private String gradleJvm;
     private String gradleHome;
@@ -25,6 +26,14 @@ public class GradleInfoResult extends BaseResult {
 
     public void setProjectName(String projectName) {
         this.projectName = projectName;
+    }
+
+    public String getProjectInfo() {
+        return projectInfo;
+    }
+
+    public void setProjectInfo(String projectInfo) {
+        this.projectInfo = projectInfo;
     }
 
     public String getDistributionType() {

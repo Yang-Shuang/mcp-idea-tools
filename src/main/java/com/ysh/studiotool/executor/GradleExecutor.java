@@ -48,6 +48,23 @@ import java.util.stream.Collectors;
 public class GradleExecutor {
 
 
+    private static final List<String> NORMAL_TASKS = List.of("clean",
+            "build",
+            "lint",
+            "compileJava",
+            "processResources",
+            "classes",
+            "compileTestJava",
+            "test",
+            "jar",
+            "assemble",
+            "assembleDebug",
+            "assembleRelease",
+            "bundleDebug",
+            "installDebug",
+            "uninstallAll",
+            "connectedAndroidTest");
+
     private static Project getProject() {
         Project[] projects = ProjectManager.getInstance().getOpenProjects();
         if (projects.length == 0) {
@@ -68,17 +85,19 @@ public class GradleExecutor {
         if (path == null || path.isEmpty()) {
             return new GradleInfoResult(BaseResult.FAILED, null, "project path is null");
         }
-        // 同时查找正斜杠和反斜杠，取最后出现的那一个
-        int index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+//        // 同时查找正斜杠和反斜杠，取最后出现的那一个
+//        int index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+//
+//        if (index != -1) {
+//            result.setProjectName(path.substring(index + 1));
+//            NotificationManager.logInfo("成功截取项目名 : " + result.getProjectName());
+//        } else {
+//            result.setProjectName(path);
+//            NotificationManager.logInfo("路径中无分隔符 : " + path);
+//        }
 
-        if (index != -1) {
-            result.setProjectName(path.substring(index + 1));
-            NotificationManager.logInfo("成功截取项目名 : " + result.getProjectName());
-        } else {
-            result.setProjectName(path);
-            NotificationManager.logInfo("路径中无分隔符 : " + path);
-        }
-
+        String projectInfo = ProjectInfoTools.getProjectInfoJson(project);
+        result.setProjectInfo(projectInfo);
 
         // ✅ 获取所有运行配置（原始对象）
         RunManager runManager = RunManager.getInstance(project);
@@ -125,8 +144,7 @@ public class GradleExecutor {
 
         HashMap<String, TreeSet<String>> taskNames = new HashMap<String, TreeSet<String>>();
 
-        Collection<TaskData> tasks = ExternalSystemApiUtil.findProjectTasks(
-                project, GradleConstants.SYSTEM_ID, path);
+        Collection<TaskData> tasks = ExternalSystemApiUtil.findProjectTasks(project, GradleConstants.SYSTEM_ID, path);
 
         for (TaskData task : tasks) {
             NotificationManager.logInfo("TaskData : " + task.getGroup() + " - " + task.getName() + " - " + task.getType() + " - " + task.getDescription());
@@ -135,11 +153,39 @@ public class GradleExecutor {
                 taskList = new TreeSet<>();
                 taskNames.put(task.getGroup(), taskList);
             }
-            taskList.add(task.getName());
+            if (NORMAL_TASKS.contains(task.getName())) {
+                taskList.add(task.getName());
+            }
         }
 
         result.setTasks(taskNames);
         return result;
+    }
+
+    public static BaseResult checkGradleTasks(@NotNull String taskName) {
+        Project project = getProject();
+        if (project == null) {
+            return BaseResult.failed(null, "No open project found");
+        }
+
+        HashMap<String, TreeSet<String>> taskNames = new HashMap<String, TreeSet<String>>();
+
+        Collection<TaskData> tasks = ExternalSystemApiUtil.findProjectTasks(project, GradleConstants.SYSTEM_ID, project.getBasePath());
+
+        boolean hasTask = false;
+
+        for (TaskData task : tasks) {
+            if (taskName.equals(task.getName())) {
+                hasTask = true;
+                break;
+            }
+        }
+
+        if (hasTask) {
+            return BaseResult.success("YES, This project gradle has the task : " + taskName, null);
+        } else {
+            return BaseResult.failed(null, "No, This project gradle tasks do not contain the task : " + taskName);
+        }
     }
 
 
