@@ -49,8 +49,9 @@ public final class ErrorScanner {
         List<VirtualFile> analyzedFiles = new ArrayList<>();
         List<String> skippedFiles = new ArrayList<>();
         int totalErrors = 0;
-        int totalWarnings = 0;
-        int totalWeakWarnings = 0;
+        // 警告只统计不输出，避免响应过大；后续如需恢复明细输出，取消注释即可
+        // int totalWarnings = 0;
+        // int totalWeakWarnings = 0;
 
         for (String path : paths) {
             VirtualFile vFile = ScannerUtil.findVirtualFile(project, path);
@@ -58,8 +59,8 @@ public final class ErrorScanner {
             Map<String, Object> fileResult = analyzeFile(project, vFile, path, true, true);
             fileResults.add(fileResult);
             totalErrors += intOf(fileResult.get("errorCount"));
-            totalWarnings += intOf(fileResult.get("warningCount"));
-            totalWeakWarnings += intOf(fileResult.get("weakWarningCount"));
+            // totalWarnings += intOf(fileResult.get("warningCount"));
+            // totalWeakWarnings += intOf(fileResult.get("weakWarningCount"));
         }
 
         // 附加：当前打开且 daemon 已分析完成的文件（快照模式，零成本、不触碰 UI），
@@ -75,8 +76,8 @@ public final class ErrorScanner {
             }
             fileResults.add(fileResult);
             totalErrors += intOf(fileResult.get("errorCount"));
-            totalWarnings += intOf(fileResult.get("warningCount"));
-            totalWeakWarnings += intOf(fileResult.get("weakWarningCount"));
+            // totalWarnings += intOf(fileResult.get("warningCount"));
+            // totalWeakWarnings += intOf(fileResult.get("weakWarningCount"));
         }
 
         result.put("state", BaseResult.SUCCESS);
@@ -89,8 +90,8 @@ public final class ErrorScanner {
             result.put("hint", "Some open files were not analyzed yet (not the selected editor); pass their paths explicitly to analyze them");
         }
         result.put("errorCount", totalErrors);
-        result.put("warningCount", totalWarnings);
-        result.put("weakWarningCount", totalWeakWarnings);
+        // result.put("warningCount", totalWarnings);
+        // result.put("weakWarningCount", totalWeakWarnings);
         result.put("files", fileResults);
         return result;
     }
@@ -110,8 +111,8 @@ public final class ErrorScanner {
         boolean dumbMode = DumbService.getInstance(project).isDumb();
         List<Map<String, Object>> fileResults = new ArrayList<>();
         int totalErrors = 0;
-        int totalWarnings = 0;
-        int totalWeakWarnings = 0;
+        // int totalWarnings = 0;
+        // int totalWeakWarnings = 0;
         int openFileCount = 0;
 
         VirtualFile[] openFiles = FileEditorManager.getInstance(project).getOpenFiles();
@@ -123,20 +124,17 @@ public final class ErrorScanner {
             Map<String, Object> fileResult = analyzeFile(project, vFile, vFile.getPath(), false, false);
             NotificationManager.logInfo("analyze result: " + fileResult.get("file")
                     + ", status=" + fileResult.get("status")
-                    + ", errors=" + fileResult.get("errorCount")
-                    + ", warnings=" + fileResult.get("warningCount")
-                    + ", weakWarnings=" + fileResult.get("weakWarningCount"));
+                    + ", errors=" + fileResult.get("errorCount"));
             if ("not_analyzed".equals(fileResult.get("status"))) {
                 skippedFiles.add(vFile.getPath());
                 continue;
             }
-            if (intOf(fileResult.get("errorCount")) > 0
-                    || intOf(fileResult.get("warningCount")) > 0
-                    || intOf(fileResult.get("weakWarningCount")) > 0) {
+            // 仅保留有错误的文件，纯警告文件不再进入结果
+            if (intOf(fileResult.get("errorCount")) > 0) {
                 fileResults.add(fileResult);
                 totalErrors += intOf(fileResult.get("errorCount"));
-                totalWarnings += intOf(fileResult.get("warningCount"));
-                totalWeakWarnings += intOf(fileResult.get("weakWarningCount"));
+                // totalWarnings += intOf(fileResult.get("warningCount"));
+                // totalWeakWarnings += intOf(fileResult.get("weakWarningCount"));
             }
         }
 
@@ -151,8 +149,8 @@ public final class ErrorScanner {
         }
         result.put("openFileCount", openFileCount);
         result.put("errorCount", totalErrors);
-        result.put("warningCount", totalWarnings);
-        result.put("weakWarningCount", totalWeakWarnings);
+        // result.put("warningCount", totalWarnings);
+        // result.put("weakWarningCount", totalWeakWarnings);
         result.put("files", fileResults);
         return result;
     }
@@ -301,8 +299,8 @@ public final class ErrorScanner {
     private static void putEmptyResult(Map<String, Object> fileResult, String status) {
         fileResult.put("status", status);
         fileResult.put("errorCount", 0);
-        fileResult.put("warningCount", 0);
-        fileResult.put("weakWarningCount", 0);
+        // fileResult.put("warningCount", 0);
+        // fileResult.put("weakWarningCount", 0);
         fileResult.put("problems", List.of());
     }
 
@@ -345,8 +343,9 @@ public final class ErrorScanner {
         ReadAction.compute(() -> {
             List<Map<String, Object>> problems = new ArrayList<>();
             int errors = 0;
-            int warnings = 0;
-            int weakWarnings = 0;
+            // 警告只分析不输出，避免响应过大；后续如需恢复，取消注释即可
+            // int warnings = 0;
+            // int weakWarnings = 0;
 
             for (HighlightInfo info : infos) {
                 HighlightSeverity severity = info.getSeverity();
@@ -354,18 +353,19 @@ public final class ErrorScanner {
                     continue;
                 }
                 boolean isError = severity.compareTo(HighlightSeverity.ERROR) >= 0;
-                boolean isWarning = !isError && severity.compareTo(HighlightSeverity.WARNING) >= 0;
-                boolean isWeakWarning = !isError && !isWarning && severity.compareTo(HighlightSeverity.WEAK_WARNING) >= 0;
-                if (!isError && !isWarning && !isWeakWarning) {
+                // boolean isWarning = !isError && severity.compareTo(HighlightSeverity.WARNING) >= 0;
+                // boolean isWeakWarning = !isError && !isWarning && severity.compareTo(HighlightSeverity.WEAK_WARNING) >= 0;
+                if (!isError) {
                     continue;
                 }
-                if (isError) {
-                    errors++;
-                } else if (isWarning) {
-                    warnings++;
-                } else {
-                    weakWarnings++;
-                }
+                // if (isError) {
+                //     errors++;
+                // } else if (isWarning) {
+                //     warnings++;
+                // } else {
+                //     weakWarnings++;
+                // }
+                errors++;
 
                 int offset = Math.min(info.getStartOffset(), document.getTextLength());
                 int lineIndex = document.getLineNumber(offset);
@@ -377,7 +377,8 @@ public final class ErrorScanner {
                 Map<String, Object> problem = new LinkedHashMap<>();
                 problem.put("line", line);
                 problem.put("column", column);
-                problem.put("severity", isError ? "ERROR" : isWarning ? "WARNING" : "WEAK_WARNING");
+                problem.put("severity", "ERROR");
+                // problem.put("severity", isError ? "ERROR" : isWarning ? "WARNING" : "WEAK_WARNING");
                 problem.put("codeLine", codeLine);
                 problem.put("message", messageOf(info));
                 problems.add(problem);
@@ -385,8 +386,8 @@ public final class ErrorScanner {
 
             fileResult.put("status", "ok");
             fileResult.put("errorCount", errors);
-            fileResult.put("warningCount", warnings);
-            fileResult.put("weakWarningCount", weakWarnings);
+            // fileResult.put("warningCount", warnings);
+            // fileResult.put("weakWarningCount", weakWarnings);
             fileResult.put("problems", problems);
             return true;
         });

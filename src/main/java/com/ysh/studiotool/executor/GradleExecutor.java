@@ -158,6 +158,9 @@ public class GradleExecutor {
             // 注意：MCP 的 Action 线程不是 IDEA 的 UI 线程（EDT），所以这里放心阻塞，绝对不会卡死界面！
             GradleInfoResult result = future.get();
 
+            // 3. 🎯 全量日志对 Agent 基本无用（大项目动辄 6 万+ 字节），统一精简后再返回
+            result.setMessage(GradleLogFilter.filter(result.getMessage()));
+
             return result;
         } catch (Exception e) {
             return new GradleInfoResult(BaseResult.FAILED, null, e.getMessage());
